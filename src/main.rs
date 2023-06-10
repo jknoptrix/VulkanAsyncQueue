@@ -1,5 +1,6 @@
 use ash::vk;
 
+#[allow(dead_code)]
 struct VulkanQueue<'a> {
     device: &'a ash::Device,
     command_pool: vk::CommandPool,
@@ -9,6 +10,7 @@ struct VulkanQueue<'a> {
 }
 
 #[allow(unused_must_use)]
+#[allow(dead_code)]
 impl<'a> VulkanQueue<'a> {
     fn new(device: &'a ash::Device, queue_index: u32, buffer: vk::Buffer, frame_buffer: u32) -> Self {
         let command_pool_create_info = vk::CommandPoolCreateInfo::builder()
@@ -49,7 +51,7 @@ impl<'a> VulkanQueue<'a> {
             let command_buffers = command_generator(i);
             let command_buffers_len = command_buffers.len() as u32;
     
-            let (synced_tx, synced_rx) = tokio::sync::oneshot::channel();
+            let (synced_tx, _synced_rx) = tokio::sync::oneshot::channel();
     
             unsafe { self.device.reset_command_pool(self.command_pool, vk::CommandPoolResetFlags::RELEASE_RESOURCES); }
             let (tx, mut rx) = tokio::sync::mpsc::channel(command_buffers_len as usize);
@@ -133,9 +135,8 @@ impl Default for Compute {
     }
 }
 
-
 fn main() {
-    let queue = Compute::new(
+    let _queue = Compute::new(
         true,
         1024
     );
