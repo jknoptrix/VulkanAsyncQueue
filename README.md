@@ -39,7 +39,7 @@ impl Default for Compute {
     }
 }
 ```
-You can extend it by yourself, but you can already call it and 'setting up' the queue settings:
+You can extend it by yourself, but you can already call it and 'setting this shit up' the queue settings:
 ```rust
 fn main() {
     let queue = Compute::new(
