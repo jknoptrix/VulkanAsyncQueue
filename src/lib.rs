@@ -1,8 +1,23 @@
 pub mod vk_swapchain;
+pub mod vk_resmgr;
+pub mod vk_syncmgr;
+pub mod vk_deskmgr;
+pub mod vk_renderpassmgr;
+pub mod vk_subpassmgr;
+pub mod pipeline;
 
-use ash::vk;
-use ash::extensions::khr;
 pub(crate) use crate::vk_swapchain::Swapchain;
+pub(crate) use crate::vk_resmgr::ResourceManager;
+pub(crate) use crate::vk_syncmgr::SynchronizationManager;
+pub(crate) use crate::vk_deskmgr::DescriptorManager;
+pub(crate) use crate::vk_renderpassmgr::RenderPassManager;
+pub(crate) use crate::vk_subpassmgr::SubpassManager;
+pub(crate) use crate::pipeline::PipelineManager;
+
+use ash::{
+    vk,
+    extensions::khr
+};
 
 #[allow(dead_code)]
 pub struct VulkanQueue<'a> {
@@ -12,12 +27,18 @@ pub struct VulkanQueue<'a> {
     buffer: vk::Buffer,
     frame_buffer: u32,
     swapchain: Swapchain,
+    resource_manager: ResourceManager,
+    descriptor_manager: DescriptorManager,
+    sync_manager: SynchronizationManager,
+    pipeline_manager: PipelineManager,
+    subpass_manager: SubpassManager,
+    render_pass_manager: RenderPassManager,
 }
 
 #[allow(unused_must_use)]
 #[allow(dead_code)]
 impl<'a> VulkanQueue<'a> {
-    fn new(
+    pub fn new(
         instance: &ash::Instance,
         device: &'a ash::Device,
         physical_device: vk::PhysicalDevice,
@@ -49,6 +70,21 @@ impl<'a> VulkanQueue<'a> {
             surface_loader,
         );
 
+        let memory_properties = unsafe {
+            instance.get_physical_device_memory_properties(physical_device)
+        };
+        let resource_manager = ResourceManager::new(device.clone(), memory_properties);
+
+        let sync_manager = SynchronizationManager::new(device.clone());
+
+        let descriptor_manager = DescriptorManager::new(device.clone());
+
+        let pipeline_manager = PipelineManager::new(device.clone());
+
+        let subpass_manager = SubpassManager::new();
+
+        let render_pass_manager = RenderPassManager::new(device.clone());
+
         Self {
             device,
             command_pool,
@@ -56,10 +92,16 @@ impl<'a> VulkanQueue<'a> {
             buffer,
             frame_buffer,
             swapchain,
+            resource_manager,
+            sync_manager,
+            descriptor_manager,
+            pipeline_manager,
+            subpass_manager,
+            render_pass_manager,
         }
     }
 
-    async fn submit_commands(
+    pub async fn submit_commands(
         &self,
         num_threads: usize,
         mut command_generator: impl FnMut(usize) -> Vec<vk::CommandBuffer> + Send + 'static,
@@ -138,27 +180,4 @@ impl<'a> VulkanQueue<'a> {
     
         Ok(())
     }    
-}
-
-// i have no clue why code below is here but whatever
-pub struct AsyncQueue;
-
-pub struct Compute {
-    pub state: bool,
-    pub buffer: u32,
-}
-
-impl Compute {
-    pub fn new(state: bool, buffer: u32) -> Self {
-        Self { state, buffer }
-    }
-}
-
-impl Default for Compute {
-    fn default() -> Self {
-        Self {
-            state: true,
-            buffer: 1024,
-        }
-    }
 }

@@ -111,8 +111,7 @@ impl Swapchain {
             .image_extent(extent)
             .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
             .image_sharing_mode(image_sharing_mode)
-            //.queue_family_index_count(queue_family_index_count) // This line is not needed and can be removed.
-            //.p_queue_family_indices(queue_family_indices) // This line is not needed and can be removed.
+            .queue_family_indices(&queue_family_indices) // This line is not needed and can be removed.
             .pre_transform(swapchain_support.capabilities.current_transform)
             .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
             .present_mode(present_mode)

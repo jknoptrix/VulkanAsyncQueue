@@ -171,3 +171,25 @@ unsafe {
     swapchain.loader.queue_present(queue.graphics_queue, &present_info).unwrap();
 }
 ```
+
+### Resource managment:
+```rust
+let vertex_data = [/* ... */];
+let buffer_size = (vertex_data.len() * std::mem::size_of::<Vertex>()) as u64;
+
+let (vertex_buffer, vertex_buffer_memory) = queue.resource_manager.create_buffer(
+    buffer_size,
+    vk::BufferUsageFlags::VERTEX_BUFFER,
+    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+);
+
+let data_ptr = unsafe {
+    device
+        .map_memory(vertex_buffer_memory, 0, buffer_size, vk::MemoryMapFlags::empty())
+        .unwrap()
+};
+unsafe {
+    std::ptr::copy_nonoverlapping(vertex_data.as_ptr() as *const u8, data_ptr, buffer_size as usize);
+    device.unmap_memory(vertex_buffer_memory);
+}
+```
