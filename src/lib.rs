@@ -1,18 +1,34 @@
+pub mod vk_swapchain;
+
 use ash::vk;
+use ash::extensions::khr;
+pub(crate) use crate::vk_swapchain::Swapchain;
 
 #[allow(dead_code)]
-struct VulkanQueue<'a> {
+pub struct VulkanQueue<'a> {
     device: &'a ash::Device,
     command_pool: vk::CommandPool,
     graphics_queue: vk::Queue,
     buffer: vk::Buffer,
     frame_buffer: u32,
+    swapchain: Swapchain,
 }
 
 #[allow(unused_must_use)]
 #[allow(dead_code)]
 impl<'a> VulkanQueue<'a> {
-    fn new(device: &'a ash::Device, queue_index: u32, buffer: vk::Buffer, frame_buffer: u32) -> Self {
+    fn new(
+        instance: &ash::Instance,
+        device: &'a ash::Device,
+        physical_device: vk::PhysicalDevice,
+        surface: vk::SurfaceKHR,
+        surface_loader: &khr::Surface,
+        queue_index: u32,
+        buffer: vk::Buffer,
+        frame_buffer: u32,
+        window_width: u32,
+        window_height: u32,
+    ) -> Self {
         let command_pool_create_info = vk::CommandPoolCreateInfo::builder()
             .queue_family_index(queue_index)
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
@@ -23,12 +39,23 @@ impl<'a> VulkanQueue<'a> {
 
         let graphics_queue = unsafe { device.get_device_queue(queue_index, 0) };
 
+        let swapchain = Swapchain::new(
+            instance,
+            device,
+            physical_device,
+            surface,
+            window_width,
+            window_height,
+            surface_loader,
+        );
+
         Self {
             device,
             command_pool,
             graphics_queue,
             buffer,
             frame_buffer,
+            swapchain,
         }
     }
 
@@ -113,6 +140,7 @@ impl<'a> VulkanQueue<'a> {
     }    
 }
 
+// i have no clue why code below is here but whatever
 pub struct AsyncQueue;
 
 pub struct Compute {
@@ -133,11 +161,4 @@ impl Default for Compute {
             buffer: 1024,
         }
     }
-}
-
-fn main() {
-    let _queue = Compute::new(
-        true,
-        1024
-    );
 }
