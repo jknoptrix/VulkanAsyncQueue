@@ -117,7 +117,6 @@ let command_generator = |i: usize| {
 queue.submit_commands(1, command_generator).await.unwrap();
 ```
 ### Framebuffers using swapchain:
-=======
 You can extend it by yourself, but you can already call it and 'setting this shit up' the queue settings:
 ```rust
 let framebuffers: Vec<vk::Framebuffer> = swapchain
