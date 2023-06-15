@@ -1,3 +1,5 @@
+use crate::vk_swapchain::Swapchain;
+
 use ash::{
     vk,
     extensions::khr
@@ -12,7 +14,7 @@ pub struct FrameManager {
     present_mode: vk::PresentModeKHR,
     surface_format: vk::SurfaceFormatKHR,
     extent: vk::Extent2D,
-    swapchain_module: crate::Swapchain,
+    swapchain_module: std::rc::Rc<Swapchain>,
 }
 
 impl FrameManager {
@@ -23,7 +25,8 @@ impl FrameManager {
         present_mode: vk::PresentModeKHR,
         surface_format: vk::SurfaceFormatKHR,
         extent: vk::Extent2D,
-        swapchain_module: crate::Swapchain,
+        swapchain_module: std::rc::Rc<Swapchain>,
+
     ) -> Self {
         Self {
             device,
@@ -34,6 +37,34 @@ impl FrameManager {
             extent,
             swapchain_module,
         }
+    }
+
+    pub fn recreate_swapchain(
+        &mut self,
+        instance: &ash::Instance,
+        device: &ash::Device,
+        physical_device: vk::PhysicalDevice,
+        surface: vk::SurfaceKHR,
+        window_width: u32,
+        window_height: u32,
+        surface_loader: &khr::Surface,
+    ) {
+        unsafe {
+            device.device_wait_idle().unwrap();
+        }
+
+        self.swapchain_module = std::rc::Rc::new(Swapchain::new(
+            instance,
+            device,
+            physical_device,
+            surface,
+            window_width,
+            window_height,
+            surface_loader,
+        ));
+
+        self.swapchain = self.swapchain_module.handle;
+        self.extent = self.swapchain_module.extent;
     }
 
     pub fn acquire_next_image(

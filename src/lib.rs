@@ -8,14 +8,21 @@ pub mod vk_subpassmgr;
 pub mod vk_framemgr;
 
 pub mod pipeline;
-pub(crate) use crate::vk_swapchain::Swapchain;
-pub(crate) use crate::vk_resmgr::ResourceManager;
-pub(crate) use crate::vk_syncmgr::SynchronizationManager;
-pub(crate) use crate::vk_deskmgr::DescriptorManager;
-pub(crate) use crate::vk_renderpassmgr::RenderPassManager;
-pub(crate) use crate::vk_cmdbuffermgr::CommandBufferManager;
-pub(crate) use crate::vk_subpassmgr::SubpassManager;
-pub(crate) use crate::pipeline::PipelineManager;
+
+pub mod utils;
+
+pub(crate) use crate::{
+    utils::DebugUtils,
+    pipeline::PipelineManager,
+    vk_cmdbuffermgr::CommandBufferManager,
+    vk_deskmgr::DescriptorManager,
+    vk_framemgr::FrameManager,
+    vk_renderpassmgr::RenderPassManager,
+    vk_resmgr::ResourceManager,
+    vk_subpassmgr::SubpassManager,
+    vk_swapchain::{Swapchain, SwapchainSupportDetails},
+    vk_syncmgr::SynchronizationManager,
+};
 
 use ash::{
     vk,
@@ -29,7 +36,7 @@ pub struct VulkanQueue<'a> {
     graphics_queue: vk::Queue,
     buffer: vk::Buffer,
     frame_buffer: u32,
-    swapchain: Swapchain,
+    swapchain: std::rc::Rc<Swapchain>,
     resource_manager: ResourceManager,
     descriptor_manager: DescriptorManager,
     sync_manager: SynchronizationManager,
@@ -37,12 +44,15 @@ pub struct VulkanQueue<'a> {
     subpass_manager: SubpassManager,
     render_pass_manager: RenderPassManager,
     command_buffer_manager: CommandBufferManager,
+    frame_manager: FrameManager,
+    debug_utils: DebugUtils,
 }
 
 #[allow(unused_must_use)]
 #[allow(dead_code)]
 impl<'a> VulkanQueue<'a> {
     pub fn new(
+        entry: &ash::Entry,
         instance: &ash::Instance,
         device: &'a ash::Device,
         physical_device: vk::PhysicalDevice,
@@ -64,7 +74,7 @@ impl<'a> VulkanQueue<'a> {
 
         let graphics_queue = unsafe { device.get_device_queue(queue_index, 0) };
 
-        let swapchain = Swapchain::new(
+        let swapchain = std::rc::Rc::new(Swapchain::new(
             instance,
             device,
             physical_device,
@@ -72,7 +82,7 @@ impl<'a> VulkanQueue<'a> {
             window_width,
             window_height,
             surface_loader,
-        );
+        ));
 
         let memory_properties = unsafe {
             instance.get_physical_device_memory_properties(physical_device)
@@ -91,6 +101,39 @@ impl<'a> VulkanQueue<'a> {
 
         let command_buffer_manager = CommandBufferManager::new(device.clone(), command_pool);
 
+        let swapchain_support = SwapchainSupportDetails::new(instance, physical_device, surface, surface_loader);
+
+        let surface_format = swapchain_support
+            .formats
+            .iter()
+            .cloned()
+            .find(|format| {
+                format.format == vk::Format::B8G8R8A8_SRGB
+                    && format.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
+            })
+            .unwrap_or(swapchain_support.formats[0]);
+
+        let present_mode = swapchain_support
+            .present_modes
+            .iter()
+            .cloned()
+            .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
+            .unwrap_or(vk::PresentModeKHR::FIFO);
+
+        let extent = swapchain.extent;
+
+        let frame_manager = FrameManager::new(
+            device.clone(),
+            khr::Swapchain::new(instance, device),
+            swapchain.handle,
+            present_mode,
+            surface_format,
+            extent,
+            swapchain.clone(),
+        );
+
+        let debug_utils = DebugUtils::new(entry, instance);
+
         Self {
             device,
             command_pool,
@@ -105,6 +148,8 @@ impl<'a> VulkanQueue<'a> {
             subpass_manager,
             render_pass_manager,
             command_buffer_manager,
+            frame_manager,
+            debug_utils,
         }
     }
 
