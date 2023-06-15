@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_variables)] // i know its not recommend but fuck off ok
 pub mod vk_swapchain;
 pub mod vk_resmgr;
 pub mod vk_syncmgr;
