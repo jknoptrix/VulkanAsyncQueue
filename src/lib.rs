@@ -1,5 +1,6 @@
+#![allow(unused_variables)]
 #![allow(dead_code)]
-#![allow(unused_variables)] // i know its not recommend but fuck off ok
+// i know its not recommend but fuck off ok
 pub mod vk_swapchain;
 pub mod vk_resmgr;
 pub mod vk_syncmgr;
@@ -8,6 +9,9 @@ pub mod vk_renderpassmgr;
 pub mod vk_cmdbuffermgr;
 pub mod vk_subpassmgr;
 pub mod vk_framemgr;
+pub mod vk_memorymgr;
+pub mod vk_shadermgr;
+pub mod vk_textmgr;
 
 pub mod pipeline;
 
@@ -24,6 +28,9 @@ pub(crate) use crate::{
     vk_subpassmgr::SubpassManager,
     vk_swapchain::{Swapchain, SwapchainSupportDetails},
     vk_syncmgr::SynchronizationManager,
+    vk_memorymgr::MemoryManager,
+    vk_shadermgr::ShaderManager,
+    vk_textmgr::TextureManager,
 };
 
 use ash::{
@@ -47,6 +54,9 @@ pub struct VulkanQueue<'a> {
     render_pass_manager: RenderPassManager,
     command_buffer_manager: CommandBufferManager,
     frame_manager: FrameManager,
+    memory_manager: MemoryManager,
+    shader_manager: ShaderManager,
+    texture_manager: TextureManager,
     debug_utils: DebugUtils,
 }
 
@@ -134,6 +144,14 @@ impl<'a> VulkanQueue<'a> {
             swapchain.clone(),
         );
 
+        let memory_properties = unsafe {
+            instance.get_physical_device_memory_properties(physical_device)
+        };
+
+        let memory_manager = MemoryManager::new(device.clone(), memory_properties);
+        let shader_manager = ShaderManager::new(device.clone());
+        let texture_manager = TextureManager::new(device.clone(), memory_manager.clone());
+
         let debug_utils = DebugUtils::new(entry, instance);
 
         Self {
@@ -151,6 +169,9 @@ impl<'a> VulkanQueue<'a> {
             render_pass_manager,
             command_buffer_manager,
             frame_manager,
+            memory_manager,
+            shader_manager,
+            texture_manager,
             debug_utils,
         }
     }

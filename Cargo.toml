@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 ash = "0.37.3"
+image = "0.24.6"
 log = "0.4.19"
 tokio = { version = "1.28.2", features = ["full"] }
