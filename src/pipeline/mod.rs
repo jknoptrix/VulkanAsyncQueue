@@ -62,5 +62,6 @@ impl PipelineManager {
                 .create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)
                 .unwrap()[0]
         }
-    }    
+    }
+        
 }

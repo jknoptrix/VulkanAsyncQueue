@@ -12,14 +12,20 @@ pub mod vk_framemgr;
 pub mod vk_memorymgr;
 pub mod vk_shadermgr;
 pub mod vk_textmgr;
+pub mod vk_pipelinemgr;
+pub mod taskmanager;
+pub mod raytracing;
 
 pub mod pipeline;
 
 pub mod utils;
 
+pub mod memtype;
+
 pub(crate) use crate::{
     utils::DebugUtils,
     pipeline::PipelineManager,
+    taskmanager::{TaskManager, TaskId},
     vk_cmdbuffermgr::CommandBufferManager,
     vk_deskmgr::DescriptorManager,
     vk_framemgr::FrameManager,
@@ -31,6 +37,7 @@ pub(crate) use crate::{
     vk_memorymgr::MemoryManager,
     vk_shadermgr::ShaderManager,
     vk_textmgr::TextureManager,
+    vk_pipelinemgr::ComputePipelineManager,
 };
 
 use ash::{
@@ -57,7 +64,9 @@ pub struct VulkanQueue<'a> {
     memory_manager: MemoryManager,
     shader_manager: ShaderManager,
     texture_manager: TextureManager,
+    compute_pipeline_manager: ComputePipelineManager,
     debug_utils: DebugUtils,
+    task_manager: TaskManager,
 }
 
 #[allow(unused_must_use)]
@@ -154,6 +163,10 @@ impl<'a> VulkanQueue<'a> {
 
         let debug_utils = DebugUtils::new(entry, instance);
 
+        let compute_pipeline_manager = ComputePipelineManager::new(device.clone());
+
+        let task_manager = TaskManager::new(4);
+
         Self {
             device,
             command_pool,
@@ -173,7 +186,26 @@ impl<'a> VulkanQueue<'a> {
             shader_manager,
             texture_manager,
             debug_utils,
+            compute_pipeline_manager,
+            task_manager,
         }
+    }
+
+    pub fn add_task<T: FnOnce() + Send + 'static>(
+        &mut self,
+        task: T,
+        priority: i32,
+        dependencies: &[TaskId],
+    ) -> TaskId {
+        self.task_manager.add_task(task, priority, dependencies)
+    }
+
+    pub fn cancel_task(&mut self, id: TaskId) -> bool {
+        self.task_manager.cancel_task(id)
+    }
+
+    pub fn get_progress(&self) -> (usize, usize) {
+        self.task_manager.get_progress()
     }
 
     pub async fn submit_commands(
