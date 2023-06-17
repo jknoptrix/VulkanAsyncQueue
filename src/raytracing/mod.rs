@@ -1,7 +1,10 @@
-use ash::vk;
-use std::sync::Arc;
-use ash::extensions::khr::*;
 use std::ffi::c_void;
+use std::mem::{self, MaybeUninit};
+use std::ptr;
+use std::sync::Arc;
+
+use ash::extensions::khr::*;
+use ash::vk;
 
 use crate::memtype::find_memorytype_index;
 
@@ -156,14 +159,12 @@ impl RTPipelineManager {
         (buffer, memory)
     }
     
-    /*
-
     pub fn create_bottom_level_acceleration_structure(
         &self,
         instance: &ash::Instance,
-        geometries: &[vk::AccelerationStructureGeometryKHR],
-        flags: vk::BuildAccelerationStructureFlagsKHR,
-    ) -> (vk::AccelerationStructureKHR, vk::DeviceMemory) {
+        geometries: &[vk::GeometryNV],
+        flags: vk::BuildAccelerationStructureFlagsNV,
+    ) -> (vk::AccelerationStructureNV, vk::DeviceMemory) {
         let device_extensions = [ash::extensions::nv::RayTracing::name().as_ptr()];
     
         let device_create_info = vk::DeviceCreateInfo::builder()
@@ -177,43 +178,56 @@ impl RTPipelineManager {
                 .expect("Failed to create logical device.")
         };
     
-        let acceleration_structure_loader = AccelerationStructure::new(instance, &device);
+        let ray_tracing = ash::extensions::nv::RayTracing::new(instance, &device);
+        let ray_tracing_fn = vk::NvRayTracingFn::load(|name| unsafe {
+            mem::transmute(instance.get_device_proc_addr(device.handle(), name.as_ptr()))
+        });
     
-        let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
-            .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
+        let create_info = vk::AccelerationStructureCreateInfoNV::builder()
+            .info(
+                vk::AccelerationStructureInfoNV::builder()
+                    .ty(vk::AccelerationStructureTypeNV::BOTTOM_LEVEL)
+                    .flags(flags)
+                    .geometries(geometries)
+                    .build(),
+            )
             .build();
     
-        let acceleration_structure = unsafe {
-            acceleration_structure_loader
-                .create_acceleration_structure(&create_info, None)
-                .unwrap()
-        };
+        let mut acceleration_structure = MaybeUninit::<vk::AccelerationStructureNV>::uninit();
+        unsafe {
+            (ray_tracing_fn.create_acceleration_structure_nv)(
+                device.handle(),
+                &create_info,
+                ptr::null(),
+                acceleration_structure.as_mut_ptr(),
+            )
+            .result()
+            .unwrap();
+        }
+        let acceleration_structure = unsafe { acceleration_structure.assume_init() };
     
-        let memory_requirements = unsafe {
-            acceleration_structure_loader
-                .get_acceleration_structure_build_sizes(
-                    vk::AccelerationStructureBuildTypeKHR::DEVICE,
-                    &vk::AccelerationStructureBuildGeometryInfoKHR::builder()
-                        .flags(flags)
-                        .geometries(geometries)
-                        .build(),
-                    &[geometries.len() as u32],
-                )
-                .acceleration_structure_size
-        };
+        let mut memory_requirements = MaybeUninit::<vk::MemoryRequirements2>::uninit();
+        unsafe {
+            (ray_tracing_fn.get_acceleration_structure_memory_requirements_nv)(
+                device.handle(),
+                &vk::AccelerationStructureMemoryRequirementsInfoNV::builder()
+                    .acceleration_structure(acceleration_structure)
+                    .ty(vk::AccelerationStructureMemoryRequirementsTypeNV::OBJECT)
+                    .build(),
+                memory_requirements.as_mut_ptr(),
+            );
+        }
+        let memory_requirements = unsafe { memory_requirements.assume_init() }.memory_requirements;
     
         let memory_type_index = find_memorytype_index(
-            &vk::MemoryRequirements {
-                size: memory_requirements,
-                ..Default::default()
-            },
+            &memory_requirements,
             &self.device_memory_properties,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )
         .expect("Unable to find suitable memory type for the acceleration structure.");
     
         let allocate_info = vk::MemoryAllocateInfo::builder()
-            .allocation_size(memory_requirements)
+            .allocation_size(memory_requirements.size)
             .memory_type_index(memory_type_index);
     
         let memory = unsafe {
@@ -228,12 +242,15 @@ impl RTPipelineManager {
             .build();
     
         unsafe {
-            device
-                .bind_acceleration_structure_memory_nv(&[bind_info])
-                .expect("Failed to bind memory to the acceleration structure.");
+            (ray_tracing_fn.bind_acceleration_structure_memory_nv)(
+                device.handle(),
+                1,
+                &bind_info,
+            )
+            .result()
+            .unwrap();
         }
     
         (acceleration_structure, memory)
-    }
-    */            
+    }            
 }

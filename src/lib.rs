@@ -1,48 +1,45 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 // i know its not recommend but fuck off ok
-pub mod vk_swapchain;
-pub mod vk_resmgr;
-pub mod vk_syncmgr;
-pub mod vk_deskmgr;
-pub mod vk_renderpassmgr;
-pub mod vk_cmdbuffermgr;
-pub mod vk_subpassmgr;
-pub mod vk_framemgr;
-pub mod vk_memorymgr;
-pub mod vk_shadermgr;
-pub mod vk_textmgr;
-pub mod vk_pipelinemgr;
-pub mod taskmanager;
-pub mod raytracing;
-
+pub mod memtype;
 pub mod pipeline;
-
+pub mod raytracing;
+pub mod taskmanager;
 pub mod utils;
 
-pub mod memtype;
+pub mod vk_cmdbuffermgr;
+pub mod vk_deskmgr;
+pub mod vk_framemgr;
+pub mod vk_memorymgr;
+pub mod vk_pipelinemgr;
+pub mod vk_renderpassmgr;
+pub mod vk_resmgr;
+pub mod vk_shadermgr;
+pub mod vk_subpassmgr;
+pub mod vk_swapchain;
+pub mod vk_syncmgr;
+pub mod vk_textmgr;
 
-pub(crate) use crate::{
-    utils::DebugUtils,
+use ash::{extensions::khr, vk};
+use std::sync::Arc;
+
+use crate::{
     pipeline::PipelineManager,
-    taskmanager::{TaskManager, TaskId},
+    taskmanager::{TaskId, TaskManager},
+    utils::DebugUtils,
+    raytracing::RTPipelineManager,
     vk_cmdbuffermgr::CommandBufferManager,
     vk_deskmgr::DescriptorManager,
     vk_framemgr::FrameManager,
+    vk_memorymgr::MemoryManager,
+    vk_pipelinemgr::ComputePipelineManager,
     vk_renderpassmgr::RenderPassManager,
     vk_resmgr::ResourceManager,
+    vk_shadermgr::ShaderManager,
     vk_subpassmgr::SubpassManager,
     vk_swapchain::{Swapchain, SwapchainSupportDetails},
     vk_syncmgr::SynchronizationManager,
-    vk_memorymgr::MemoryManager,
-    vk_shadermgr::ShaderManager,
     vk_textmgr::TextureManager,
-    vk_pipelinemgr::ComputePipelineManager,
-};
-
-use ash::{
-    vk,
-    extensions::khr
 };
 
 #[allow(dead_code)]
@@ -67,6 +64,7 @@ pub struct VulkanQueue<'a> {
     compute_pipeline_manager: ComputePipelineManager,
     debug_utils: DebugUtils,
     task_manager: TaskManager,
+    raytracing: RTPipelineManager,
 }
 
 #[allow(unused_must_use)]
@@ -77,6 +75,7 @@ impl<'a> VulkanQueue<'a> {
         instance: &ash::Instance,
         device: &'a ash::Device,
         physical_device: vk::PhysicalDevice,
+        queue_create_infos: Vec<vk::DeviceQueueCreateInfo>,
         surface: vk::SurfaceKHR,
         surface_loader: &khr::Surface,
         queue_index: u32,
@@ -167,6 +166,14 @@ impl<'a> VulkanQueue<'a> {
 
         let task_manager = TaskManager::new(4);
 
+        let raytracing = RTPipelineManager::new(
+            entry,
+            instance,
+            Arc::new(device.clone()),
+            physical_device,
+            queue_create_infos,
+        );
+
         Self {
             device,
             command_pool,
@@ -188,6 +195,7 @@ impl<'a> VulkanQueue<'a> {
             debug_utils,
             compute_pipeline_manager,
             task_manager,
+            raytracing,
         }
     }
 
